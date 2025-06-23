@@ -5,8 +5,8 @@ exports.verifyProduct = async (req, res) => {
   try {
     const { productId } = req.params;
     const { approvalStatus } = req.body;
-    if (!['Approved', 'Rejected'].includes(approvalStatus)) {
-      return res.status(400).json(apiResponse(400, false, "Invalid approval status. Must be 'Approved' or 'Rejected'."));
+    if (!['Verified', 'Rejected'].includes(approvalStatus)) {
+      return res.status(400).json(apiResponse(400, false, "Invalid approval status. Must be 'Verified' or 'Rejected'."));
     }
     const product = await Product.findById(productId);
     if (!product) {

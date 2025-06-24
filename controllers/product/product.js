@@ -512,9 +512,20 @@ exports.getOutofStockProducts = async (req, res) => {
 exports.getHighPriceProducts = async (req, res) => {
   try {
     const wholesalerId = req.user.id;
+    const { searchQuery, limit = 100 } = req.query;
+    // Build productQuery using only the search feature
+    const productQuery = { wholesalerId };
 
-    // Get all products for the current wholesaler
-    const wholesalerProducts = await Product.find({ wholesalerId });
+    if (searchQuery && searchQuery.length >= 2) {
+      const searchPattern = new RegExp(searchQuery, 'i');
+      productQuery.$or = [
+        { productName: searchPattern },
+        { productDescription: searchPattern }
+      ];
+    }
+
+    // Get all products for the current wholesaler using the built query
+    const wholesalerProducts = await Product.find(productQuery).limit(Number(limit));
 
     if (wholesalerProducts.length === 0) {
       return res
@@ -533,17 +544,16 @@ exports.getHighPriceProducts = async (req, res) => {
       });
 
       if (otherWholesalerProducts.length > 0) {
-        // Calculate average price from other wholesalers
-        const totalPrice = otherWholesalerProducts.reduce((sum, p) => sum + p.priceBeforeGst, 0);
-        const averagePrice = totalPrice / otherWholesalerProducts.length;
+        // Find the minimum price among other wholesalers
+        const minPrice = Math.min(...otherWholesalerProducts.map(p => p.priceBeforeGst));
 
-        // If current wholesaler's price is higher than average
-        if (product.priceBeforeGst > averagePrice) {
+        // If current wholesaler's price is higher than the minimum price
+        if (product.priceBeforeGst > minPrice) {
           highPriceProducts.push({
             product,
-            averagePrice,
-            priceDifference: product.priceBeforeGst - averagePrice,
-            percentageDifference: ((product.priceBeforeGst - averagePrice) / averagePrice) * 100
+            minPrice,
+            priceDifference: product.priceBeforeGst - minPrice,
+            percentageDifference: ((product.priceBeforeGst - minPrice) / minPrice) * 100
           });
         }
       }

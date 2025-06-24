@@ -1,26 +1,25 @@
 const express = require('express');
 const router = express.Router();
 const orderController = require('../../controllers/order/order');
+const { verifyToken} = require('../../middlewares/verifyToken');
+const { isWholesaler} = require('../../middlewares/isWholesaler');
 
-// TEMPORARY: Create a dummy retailer for testing
-router.post('/dummy-retailer', orderController.createDummyRetailer);
 
 // Create a new order (for testing/admin)
-router.post('/', orderController.createOrderForWholesaler);
+router.post('/',verifyToken,isWholesaler, orderController.createOrderForWholesaler);
 
 // Get all orders for wholesaler
-router.get('/', orderController.getAllOrdersForWholesaler);
+router.get('/',verifyToken,isWholesaler, orderController.getAllOrdersForWholesaler);
 
 // Get a single order by ID
-router.get('/:orderId', orderController.getOrderByIdForWholesaler);
+router.get('/:orderId',verifyToken,isWholesaler, orderController.getOrderByIdForWholesaler);
 
 // Update order status
-router.patch('/:orderId/status', orderController.updateOrderStatusForWholesaler);
+router.patch('/:orderId/status',verifyToken,isWholesaler, orderController.updateOrderStatusForWholesaler);
 
-// Delete an order
-router.delete('/:orderId', orderController.deleteOrderForWholesaler);
+
 
 // Search/filter orders
-router.get('/search/filter', orderController.searchOrdersForWholesaler);
+router.get('/search/filter',verifyToken,isWholesaler, orderController.searchOrdersForWholesaler);
 
 module.exports = router; 

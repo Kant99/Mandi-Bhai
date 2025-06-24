@@ -2,9 +2,7 @@ const Order = require('../../Models/Common/Order');
 const { apiResponse } = require('../../utils/apiResponse');
 const RetailerProfile = require('../../Models/Retailer/Profile');
 
-/**
- * Get all orders for the logged-in wholesaler
- */
+
 exports.getAllOrdersForWholesaler = async (req, res) => {
   try {
     const wholesalerId = req.user.id;
@@ -73,25 +71,7 @@ exports.updateOrderStatusForWholesaler = async (req, res) => {
   }
 };
 
-/**
- * Delete an order (wholesaler can only delete their own orders)
- * Note: In real-world, deleting orders is rare; usually, status is set to cancelled/rejected.
- */
-exports.deleteOrderForWholesaler = async (req, res) => {
-  try {
-    const wholesalerId = req.user.id;
-    const { orderId } = req.params;
-    const order = await Order.findOne({ _id: orderId, wholesalerId });
-    if (!order) {
-      return res.status(404).json(apiResponse(404, false, 'Order not found'));
-    }
-    await order.deleteOne();
-    return res.status(200).json(apiResponse(200, true, 'Order deleted successfully'));
-  } catch (error) {
-    console.log('Error in deleteOrderForWholesaler:', error.message);
-    return res.status(500).json(apiResponse(500, false, 'Failed to delete order'));
-  }
-};
+
 
 /**
  * Create a new order (for testing/admin; typically, retailers create orders)
@@ -110,7 +90,7 @@ exports.createOrderForWholesaler = async (req, res) => {
       notes,
       vehicleNumber
     } = req.body;
-    if (!retailerId || !products || !deliveryAddress || !orderTotal) {
+    if (!retailerId || !products || !deliveryAddress) {
       return res.status(400).json(apiResponse(400, false, 'Missing required fields'));
     }
     const order = new Order({
@@ -138,58 +118,75 @@ exports.createOrderForWholesaler = async (req, res) => {
 exports.searchOrdersForWholesaler = async (req, res) => {
   try {
     const wholesalerId = req.user.id;
-    const { status, retailerId, fromDate, toDate, minTotal, maxTotal, paymentMethod, vehicleNumber } = req.query;
+    const {
+      status,
+      retailerId,
+      fromDate,
+      toDate,
+      minTotal,
+      maxTotal,
+      paymentMethod,
+      vehicleNumber,
+    } = req.query;
+
     const query = { wholesalerId };
-    // Filter by order status
-    if (status) query.status = status;
-    // Filter by retailer
+
+    // Case-insensitive search for status
+    if (status) {
+      query.status = { $regex: new RegExp(`^${status}$`, 'i') }; // exact match, case-insensitive
+    }
+
     if (retailerId) query.retailerId = retailerId;
-    // Filter by date range
+
+    // Filter by date range with validation
     if (fromDate || toDate) {
       query.createdAt = {};
-      if (fromDate) query.createdAt.$gte = new Date(fromDate);
-      if (toDate) query.createdAt.$lte = new Date(toDate);
+      if (fromDate) {
+        const parsedFrom = new Date(fromDate);
+        if (!isNaN(parsedFrom)) query.createdAt.$gte = parsedFrom;
+        else console.log("Invalid fromDate:", fromDate);
+      }
+      if (toDate) {
+        const parsedTo = new Date(toDate);
+        if (!isNaN(parsedTo)) query.createdAt.$lte = parsedTo;
+        else console.log("Invalid toDate:", toDate);
+      }
+      if (Object.keys(query.createdAt).length === 0) delete query.createdAt;
     }
+
     // Filter by order amount
     if (minTotal || maxTotal) {
       query.orderTotal = {};
       if (minTotal) query.orderTotal.$gte = Number(minTotal);
       if (maxTotal) query.orderTotal.$lte = Number(maxTotal);
     }
-    // Filter by payment method
-    if (paymentMethod) query.paymentMethod = paymentMethod;
-    // Filter by vehicle number
-    if (vehicleNumber) query.vehicleNumber = vehicleNumber;
+
+    // Case-insensitive search for payment method
+    if (paymentMethod) {
+      query.paymentMethod = { $regex: new RegExp(`^${paymentMethod}$`, 'i') };
+    }
+
+    // Case-insensitive search for vehicle number
+    if (vehicleNumber) {
+      query.vehicleNumber = { $regex: new RegExp(vehicleNumber, 'i') }; // partial match, case-insensitive
+    }
+
+    console.log("Final MongoDB Query:", query);
+
     const orders = await Order.find(query)
-      .populate('retailerId', 'name phoneNumber address')
+      .populate("retailerId", "name phoneNumber address")
       .sort({ createdAt: -1 });
-    return res.status(200).json(apiResponse(200, true, 'Orders retrieved successfully', { orders }));
+
+    console.log("Orders found:", orders.length);
+    return res
+      .status(200)
+      .json(apiResponse(200, true, "Orders retrieved successfully", { orders }));
   } catch (error) {
-    console.log('Error in searchOrdersForWholesaler:', error.message);
-    return res.status(500).json(apiResponse(500, false, 'Failed to search orders'));
+    console.log("Error in searchOrdersForWholesaler:", error.message);
+    return res
+      .status(500)
+      .json(apiResponse(500, false, "Failed to search orders"));
   }
 };
 
-/**
- * TEMPORARY: Create a dummy retailer profile for testing order endpoints
- * Remove or protect this endpoint in production!
- */
-exports.createDummyRetailer = async (req, res) => {
-  try {
-    // You can customize these values as needed
-    const dummyData = {
-      retailerId: req.body.retailerId || undefined, // Optionally link to an Auth user
-      name: req.body.name || 'Dummy Retailer',
-      phoneNumber: req.body.phoneNumber || '9999999999',
-      address: req.body.address || 'Test Address'
-    };
-    const retailer = new RetailerProfile(dummyData);
-    await retailer.save();
-    return res.status(201).json(apiResponse(201, true, 'Dummy retailer created', { retailer }));
-  } catch (error) {
-    console.log('Error in createDummyRetailer:', error.message);
-    return res.status(500).json(apiResponse(500, false, 'Failed to create dummy retailer'));
-  }
-};
 
-// The above functions are for wholesaler POV. For retailer POV, similar functions can be created referencing retailerId.

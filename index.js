@@ -62,8 +62,8 @@ app.use("/api/admin/category",categoryRoutes)
 //product Routes Mount
 app.use("/api/wholesaler/product",productRoutes)
 
-//order Routes Mount
-app.use("/api/order",orderRoutes)
+//order wholesaler Routes Mount
+app.use("/api/wholesaler/order",orderRoutes)
 
 //def Routes
 app.get("/",(req,res)=>{

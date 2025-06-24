@@ -21,11 +21,6 @@ const orderSchema = new mongoose.Schema({
         ref: 'Product',
         required: true
       },
-      productName: String,
-      productImage: String,
-      categoryName: String,
-      priceUnit: String, // e.g., 'per kg', 'per piece'
-      priceAmount: Number,
       quantity: {
         type: Number,
         required: true,
